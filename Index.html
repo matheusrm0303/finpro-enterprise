@@ -2628,7 +2628,7 @@
             document.getElementById('sim-res-total').textContent = formatCurrency(totalAmount);
         }
 
-        // ==================== DIRECT PROFESSIONAL PDF DOWNLOAD (html2pdf) ====================
+        // ==================== DETAILED & COLORFUL PROFESSIONAL PDF DOWNLOAD ====================
         function exportMonthlyPDF() {
             const selectedMonth = getSelectedMonth();
             const monthLabel = formatMonthLabel(selectedMonth);
@@ -2640,66 +2640,125 @@
                 if (t.type !== 'receita' && t.status === 'pago') exp += t.amount;
             });
             const balance = inc - exp;
+            const savingsRate = inc > 0 ? Math.max(Math.round(((inc - exp) / inc) * 100), 0) : 0;
 
-            // Create a temporary styled container for PDF rendering
+            const catMap = {};
+            monthTxs.forEach(t => {
+                if ((t.type === 'fixo' || t.type === 'variavel') && t.status === 'pago') {
+                    catMap[t.category] = (catMap[t.category] || 0) + t.amount;
+                }
+            });
+
             const container = document.createElement('div');
             container.style.fontFamily = "'Inter', sans-serif";
-            container.style.padding = "35px";
+            container.style.padding = "30px";
             container.style.background = "#ffffff";
             container.style.color = "#0f172a";
             container.style.width = "780px";
             container.style.margin = "0 auto";
 
+            let categoryBarsHtml = '';
+            const catEntries = Object.entries(catMap);
+            if (catEntries.length > 0) {
+                const colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#14b8a6', '#f43f5e'];
+                categoryBarsHtml = `
+                    <div style="margin-bottom: 25px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+                        <h3 style="font-size: 13px; color: #334155; margin: 0 0 15px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Distribuição Visual de Despesas por Categoria</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            ${catEntries.map(([cat, val], idx) => {
+                                const pct = exp > 0 ? Math.round((val / exp) * 100) : 0;
+                                const color = colors[idx % colors.length];
+                                return `
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #1e293b;">
+                                            <span>${escapeHtml(cat)}</span>
+                                            <span>R$ ${val.toFixed(2)} (${pct}%)</span>
+                                        </div>
+                                        <div style="width: 100%; background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden;">
+                                            <div style="width: ${pct}%; background: ${color}; height: 100%; border-radius: 4px;"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            let accountsHtml = '';
+            if (appData.accounts && appData.accounts.length > 0) {
+                accountsHtml = `
+                    <div style="margin-bottom: 25px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+                        <h3 style="font-size: 13px; color: #334155; margin: 0 0 12px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Panorama das Contas & Saldos Atuais</h3>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            ${appData.accounts.map(acc => `
+                                <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 10px 14px; border-radius: 8px;">
+                                    <span style="font-size: 10px; color: #64748b; font-weight: 600; display: block;">${escapeHtml(acc.name)}</span>
+                                    <span style="font-size: 13px; font-weight: 800; color: ${acc.balance >= 0 ? '#059669' : '#e11d48'};">R$ ${acc.balance.toFixed(2)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
             container.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #6366f1; padding-bottom: 20px; margin-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #6366f1; padding-bottom: 18px; margin-bottom: 25px;">
                     <div>
-                        <h1 style="font-size: 24px; margin: 0; color: #4f46e5; font-weight: 800; letter-spacing: -0.5px;">FinPro Enterprise</h1>
-                        <p style="font-size: 12px; margin: 5px 0 0 0; color: #64748b;">Relatório Financeiro Profissional</p>
+                        <h1 style="font-size: 22px; margin: 0; color: #4f46e5; font-weight: 800; letter-spacing: -0.5px;">FinPro Enterprise</h1>
+                        <p style="font-size: 11px; margin: 4px 0 0 0; color: #64748b;">Relatório Financeiro Executivo Detalhado</p>
                     </div>
                     <div style="text-align: right;">
-                        <h2 style="font-size: 16px; margin: 0; color: #0f172a; text-transform: capitalize; font-weight: 700;">${monthLabel}</h2>
-                        <p style="font-size: 11px; margin: 4px 0 0 0; color: #64748b;">Emitido em: ${new Date().toLocaleDateString('pt-PT')}</p>
+                        <h2 style="font-size: 15px; margin: 0; color: #0f172a; text-transform: capitalize; font-weight: 700;">${monthLabel}</h2>
+                        <p style="font-size: 10px; margin: 3px 0 0 0; color: #64748b;">Emitido em: ${new Date().toLocaleDateString('pt-PT')}</p>
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px;">
-                    <div style="border: 1px solid #10b981; background: #ecfdf5; padding: 18px; border-radius: 12px;">
-                        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #047857; display: block; margin-bottom: 6px;">Receitas Totais</span>
-                        <h3 style="font-size: 20px; margin: 0; color: #059669; font-weight: 800;">R$ ${inc.toFixed(2)}</h3>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px;">
+                    <div style="border: 1px solid #a7f3d0; background: #ecfdf5; padding: 14px; border-radius: 10px;">
+                        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #047857; display: block; margin-bottom: 4px;">Receitas</span>
+                        <h3 style="font-size: 16px; margin: 0; color: #059669; font-weight: 800;">R$ ${inc.toFixed(2)}</h3>
                     </div>
-                    <div style="border: 1px solid #f43f5e; background: #fff1f2; padding: 18px; border-radius: 12px;">
-                        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #be123c; display: block; margin-bottom: 6px;">Despesas Totais</span>
-                        <h3 style="font-size: 20px; margin: 0; color: #e11d48; font-weight: 800;">R$ ${exp.toFixed(2)}</h3>
+                    <div style="border: 1px solid #fecdd3; background: #fff1f2; padding: 14px; border-radius: 10px;">
+                        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #be123c; display: block; margin-bottom: 4px;">Despesas</span>
+                        <h3 style="font-size: 16px; margin: 0; color: #e11d48; font-weight: 800;">R$ ${exp.toFixed(2)}</h3>
                     </div>
-                    <div style="border: 1px solid #6366f1; background: #eef2ff; padding: 18px; border-radius: 12px;">
-                        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #4338ca; display: block; margin-bottom: 6px;">Balanço do Mês</span>
-                        <h3 style="font-size: 20px; margin: 0; color: #4f46e5; font-weight: 800;">R$ ${balance.toFixed(2)}</h3>
+                    <div style="border: 1px solid #c7d2fe; background: #eef2ff; padding: 14px; border-radius: 10px;">
+                        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #4338ca; display: block; margin-bottom: 4px;">Balanço</span>
+                        <h3 style="font-size: 16px; margin: 0; color: #4f46e5; font-weight: 800;">R$ ${balance.toFixed(2)}</h3>
+                    </div>
+                    <div style="border: 1px solid #bae6fd; background: #f0f9ff; padding: 14px; border-radius: 10px;">
+                        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #0369a1; display: block; margin-bottom: 4px;">Poupança</span>
+                        <h3 style="font-size: 16px; margin: 0; color: #0284c7; font-weight: 800;">${savingsRate}%</h3>
                     </div>
                 </div>
 
-                <h3 style="font-size: 14px; color: #0f172a; margin-bottom: 12px; font-weight: 700; border-left: 4px solid #6366f1; padding-left: 8px;">Registo Detalhado de Transações</h3>
+                ${categoryBarsHtml}
+                ${accountsHtml}
+
+                <h3 style="font-size: 13px; color: #0f172a; margin-bottom: 10px; font-weight: 700; border-left: 4px solid #6366f1; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Registo Detalhado de Transações</h3>
                 
-                <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                     <thead>
                         <tr style="background: #f1f5f9; color: #334155; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Data</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Descrição</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Categoria</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Tipo</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Estado</th>
-                            <th style="padding: 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">Valor</th>
+                            <th style="padding: 9px 12px; text-align: left; border-bottom: 2px solid #cbd5e1;">Data</th>
+                            <th style="padding: 9px 12px; text-align: left; border-bottom: 2px solid #cbd5e1;">Descrição</th>
+                            <th style="padding: 9px 12px; text-align: left; border-bottom: 2px solid #cbd5e1;">Categoria</th>
+                            <th style="padding: 9px 12px; text-align: left; border-bottom: 2px solid #cbd5e1;">Tipo</th>
+                            <th style="padding: 9px 12px; text-align: left; border-bottom: 2px solid #cbd5e1;">Estado</th>
+                            <th style="padding: 9px 12px; text-align: right; border-bottom: 2px solid #cbd5e1;">Valor</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${monthTxs.length === 0 ? '<tr><td colspan="6" style="text-align:center; color:#64748b; padding: 25px;">Nenhuma transação registada neste mês.</td></tr>' : 
+                        ${monthTxs.length === 0 ? '<tr><td colspan="6" style="text-align:center; color:#64748b; padding: 20px;">Nenhuma transação registada neste mês.</td></tr>' : 
                             monthTxs.map((t, idx) => `
                                 <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0;">
-                                    <td style="padding: 10px; color: #475569;">${t.date.split('-').reverse().join('/')}</td>
-                                    <td style="padding: 10px; font-weight: 600; color: #0f172a;">${escapeHtml(t.description)}</td>
-                                    <td style="padding: 10px; color: #475569;">${escapeHtml(t.category)}</td>
-                                    <td style="padding: 10px;"><span style="padding: 3px 8px; border-radius: 4px; font-size: 9px; font-weight: 700; background: ${t.type === 'receita' ? '#d1fae5; color: #065f46;' : '#fee2e2; color: #991b1b;'}">${t.type.toUpperCase()}</span></td>
-                                    <td style="padding: 10px; color: #475569;">${t.status === 'pago' ? 'Pago' : 'Pendente'}</td>
-                                    <td style="padding: 10px; text-align: right; font-weight: 700; color: ${t.type === 'receita' ? '#059669' : '#e11d48'};">
+                                    <td style="padding: 9px 12px; color: #475569;">${t.date.split('-').reverse().join('/')}</td>
+                                    <td style="padding: 9px 12px; font-weight: 600; color: #0f172a;">${escapeHtml(t.description)}</td>
+                                    <td style="padding: 9px 12px; color: #475569;">${escapeHtml(t.category)}</td>
+                                    <td style="padding: 9px 12px;"><span style="padding: 3px 7px; border-radius: 4px; font-size: 9px; font-weight: 700; background: ${t.type === 'receita' ? '#d1fae5; color: #065f46;' : '#fee2e2; color: #991b1b;'}">${t.type.toUpperCase()}</span></td>
+                                    <td style="padding: 9px 12px; color: #475569;">${t.status === 'pago' ? 'Pago' : 'Pendente'}</td>
+                                    <td style="padding: 9px 12px; text-align: right; font-weight: 700; color: ${t.type === 'receita' ? '#059669' : '#e11d48'};">
                                         ${t.type === 'receita' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
                                     </td>
                                 </tr>
@@ -2707,7 +2766,7 @@
                     </tbody>
                 </table>
 
-                <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+                <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
                     <span>Gerado automaticamente pelo FinPro Enterprise</span>
                     <span>Página 1 de 1</span>
                 </div>
@@ -2715,15 +2774,15 @@
 
             const opt = {
                 margin:       10,
-                filename:     `relatorio_financeiro_${selectedMonth}.pdf`,
+                filename:     `relatorio_detalhado_${selectedMonth}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            showToast('A gerar PDF profissional...', 'info');
+            showToast('A gerar PDF detalhado e colorido...', 'info');
             html2pdf().from(container).set(opt).save().then(() => {
-                showToast('PDF descarregado com sucesso!', 'success');
+                showToast('PDF detalhado descarregado com sucesso!', 'success');
             }).catch(err => {
                 showToast('Erro ao gerar o PDF.', 'error');
             });
